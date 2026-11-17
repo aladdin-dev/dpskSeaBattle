@@ -1,0 +1,19 @@
+{
+  "name": "morskoy-boy-p2p",
+  "version": "1.0.0",
+  "private": true,
+  "description": "P2P «Морской бой» на PeerJS для двух браузеров",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tests/engine.test.mjs",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "keywords": ["battleship", "peerjs", "webrtc", "game", "p2p"],
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.1"
+  },
+  "license": "MIT"
+}

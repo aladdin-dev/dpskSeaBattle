@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#06131f">
+  <meta name="description" content="Морской бой на двоих по прямой P2P-связи. Создайте комнату, отправьте ID другу и играйте с любого устройства.">
+  <title>Морской бой — P2P игра на двоих</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="vendor/peerjs.min.js" defer></script>
+  <script src="js/engine.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L10.7 5.23"/><path d="M14 11a5 5 0 0 0-7.07 0L4.8 13.12a5 5 0 0 0 7.07 7.07l1.42-1.42"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-ship" viewBox="0 0 24 24"><path d="M3 15h18l-2.2 4.2a2 2 0 0 1-1.8 1.1H7a2 2 0 0 1-1.8-1.1L3 15Z"/><path d="M6 15V8h12v7M9 8V4h6v4M12 4V2"/><path d="M3 20c2 1.2 4 1.2 6 0s4-1.2 6 0 4 1.2 6 0"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-9 13h7l-1 7 9-13h-7l1-7Z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5m6-6-6 6 6 6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 9a7 7 0 0 1 11.6-2L20 9M4 15l2.3 2A7 7 0 0 0 18 15"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/><path d="M2 9a14 14 0 0 1 20 0"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 22V3M5 4h12l-2 4 2 4H5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 6H3v2a5 5 0 0 0 5 5M17 6h4v2a5 5 0 0 1-5 5"/></symbol>
+    <symbol id="i-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 19 5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-paste" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h6M9 18h4"/></symbol>
+    <symbol id="i-anchor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 7.5V22M5 12H2a10 10 0 0 0 20 0h-3M8 12h8"/></symbol>
+    <symbol id="i-waves" viewBox="0 0 24 24"><path d="M2 7c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0M2 12c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0M2 17c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 18v.1"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-door" viewBox="0 0 24 24"><path d="M10 3H4v18h6M14 8l4 4-4 4M18 12H9"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar__inner">
+        <button class="brand" id="btn-brand" type="button" aria-label="На главный экран">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="17" stroke="currentColor" stroke-opacity=".28"/>
+              <circle cx="20" cy="20" r="11" stroke="currentColor" stroke-opacity=".5"/>
+              <path d="M20 5v30M5 20h30" stroke="currentColor" stroke-opacity=".22"/>
+              <path d="m20 10 4.7 9.4L20 30l-4.7-10.6L20 10Z" fill="currentColor"/>
+              <circle cx="20" cy="20" r="2.2" fill="#06131f"/>
+            </svg>
+          </span>
+          <span class="brand__text">
+            <strong>МОРСКОЙ БОЙ</strong>
+            <small>P2P · WEBRTC</small>
+          </span>
+        </button>
+
+        <div class="topbar__right">
+          <div class="status-pill" id="status-pill" data-state="offline" title="Статус соединения">
+            <span class="status-pill__dot" aria-hidden="true"></span>
+            <span id="status-text">Не подключено</span>
+          </div>
+          <button class="icon-btn" id="btn-home" type="button" aria-label="Вернуться на главный экран" hidden>
+            <svg class="icon"><use href="#i-home"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main" id="app-main">
+      <!-- ЭКРАН 1. ЛОББИ -->
+      <section class="screen screen--lobby is-active" id="screen-lobby" data-screen="lobby" aria-labelledby="lobby-title">
+        <div class="lobby-hero">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow__line"></span> Игра на двоих по прямой связи</p>
+            <h1 id="lobby-title" tabindex="-1">Сыграйте в <span class="text-gradient">Морской&nbsp;бой</span> на любом расстоянии</h1>
+            <p class="lead">Создайте комнату и отправьте ID другу. Никакой регистрации — только вы, соперник и 10×10 клеток океана.</p>
+            <div class="lobby-actions">
+              <button class="btn btn--primary btn--lg" id="btn-create" type="button">
+                <svg class="icon"><use href="#i-plus"/></svg>
+                <span>Создать игру</span>
+              </button>
+              <button class="btn btn--secondary btn--lg" id="btn-join" type="button">
+                <svg class="icon"><use href="#i-link"/></svg>
+                <span>Присоединиться</span>
+              </button>
+            </div>
+            <p class="privacy-note">
+              <svg class="icon"><use href="#i-shield"/></svg>
+              Прямое P2P-соединение. Игровые данные идут между браузерами.
+            </p>
+          </div>
+
+          <div class="hero-visual" aria-hidden="true">
+            <div class="radar">
+              <span class="radar__ring radar__ring--1"></span>
+              <span class="radar__ring radar__ring--2"></span>
+              <span class="radar__ring radar__ring--3"></span>
+              <span class="radar__cross radar__cross--h"></span>
+              <span class="radar__cross radar__cross--v"></span>
+              <span class="radar__sweep"></span>
+              <span class="radar__blip radar__blip--1"></span>
+              <span class="radar__blip radar__blip--2"></span>
+              <span class="radar__blip radar__blip--3"></span>
+              <span class="radar__core">
+                <svg viewBox="0 0 24 24"><use href="#i-ship"/></svg>
+              </span>
+            </div>
+            <div class="float-card float-card--fleet">
+              <span class="float-card__label">Флот</span>
+              <strong>10 кораблей</strong>
+              <div class="mini-fleet"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="float-card float-card--turn">
+              <span class="turn-dot"></span>
+              <div><strong>Ваш ход</strong><span>Выберите клетку</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature-card">
+            <span class="feature-card__icon"><svg class="icon"><use href="#i-ship"/></svg></span>
+            <div><h2>Классический флот</h2><p>Линкор, два крейсера, три эсминца и четыре катера. Корабли не соприкасаются даже углами.</p></div>
+          </article>
+          <article class="feature-card">
+            <span class="feature-card__icon"><svg class="icon"><use href="#i-bolt"/></svg></span>
+            <div><h2>Связь напрямую</h2><p>PeerJS и WebRTC соединяют браузеры напрямую. Сигнализация — публичное облако PeerJS.</p></div>
+          </article>
+          <article class="feature-card">
+            <span class="feature-card__icon"><svg class="icon"><use href="#i-phone"/></svg></span>
+            <div><h2>Удобно на телефоне</h2><p>Крупные клетки, расстановка в одно касание и два поля друг под другом.</p></div>
+          </article>
+        </div>
+
+        <details class="rules-card">
+          <summary>
+            <span><svg class="icon"><use href="#i-radar"/></svg> Как играть и правила</span>
+            <span class="rules-card__chevron" aria-hidden="true">+</span>
+          </summary>
+          <div class="rules-card__body">
+            <ol>
+              <li><strong>Создайте комнату</strong> или присоединитесь по ID друга.</li>
+              <li><strong>Расставьте флот</strong> на верхнем поле: выбирайте корабль и касайтесь клетки. Поворот — кнопкой смены ориентации.</li>
+              <li><strong>Стреляйте</strong> по нижнему полю. Попали — стреляете снова, промахнулись — ход переходит сопернику.</li>
+              <li><strong>Побеждает</strong> тот, кто первым потопит все 10 кораблей противника.</li>
+            </ol>
+            <p>Флот: 1 × линкор (4 клетки), 2 × крейсер (3), 3 × эсминец (2), 4 × катер (1). Попадание отмечается крестом, потопленный корабль закрашивается.</p>
+          </div>
+        </details>
+
+        <footer class="lobby-footer">
+          <span>Морской бой · 2026</span>
+          <span>PeerJS / WebRTC · без регистрации</span>
+        </footer>
+      </section>
+
+      <!-- ЭКРАН 2. СОЗДАНИЕ КОМНАТЫ -->
+      <section class="screen screen--narrow" id="screen-create" data-screen="create" aria-labelledby="create-title" hidden>
+        <div class="screen-head">
+          <button class="back-btn" type="button" data-go="lobby" aria-label="Назад в лобби">
+            <svg class="icon"><use href="#i-arrow-left"/></svg>
+          </button>
+          <div><p class="eyebrow">Новая игра</p><h1 id="create-title" tabindex="-1">Комната</h1></div>
+        </div>
+
+        <div class="panel panel--create">
+          <div class="state-icon state-icon--radar" id="create-icon">
+            <svg class="icon"><use href="#i-radar"/></svg>
+            <span class="state-icon__pulse"></span>
+          </div>
+          <h2 id="create-status-title">Создаём комнату…</h2>
+          <p id="create-status-text">Соединяемся с сигнальным сервером PeerJS.</p>
+
+          <div class="room-code-block">
+            <span class="field-label">ID комнаты</span>
+            <div class="room-code">
+              <code id="room-id" aria-live="polite">······</code>
+              <button class="icon-btn icon-btn--box" id="btn-copy-id" type="button" aria-label="Скопировать ID комнаты" disabled>
+                <svg class="icon"><use href="#i-copy"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="share-actions">
+            <button class="btn btn--soft btn--sm" id="btn-copy-link" type="button" disabled>
+              <svg class="icon"><use href="#i-link"/></svg> Скопировать ссылку
+            </button>
+            <button class="btn btn--soft btn--sm" id="btn-share" type="button" hidden>
+              <svg class="icon"><use href="#i-share"/></svg> Поделиться
+            </button>
+          </div>
+
+          <div class="waiting-card" id="waiting-card">
+            <span class="waiting-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <div><strong>Ждём соперника</strong><span>Передайте ID любым удобным способом</span></div>
+          </div>
+
+          <div class="inline-error" id="create-error" role="alert" hidden></div>
+          <button class="btn btn--secondary btn--block" id="btn-create-retry" type="button" hidden>
+            <svg class="icon"><use href="#i-rotate"/></svg>
+            <span>Попробовать снова</span>
+          </button>
+
+          <button class="text-btn text-btn--muted" id="btn-create-cancel" type="button">Отменить и вернуться</button>
+        </div>
+
+        <ol class="steps-list">
+          <li><span>1</span><p>Скопируйте ID или ссылку на комнату.</p></li>
+          <li><span>2</span><p>Отправьте её другу в мессенджере.</p></li>
+          <li><span>3</span><p>Как только он подключится, начнётся расстановка флота.</p></li>
+        </ol>
+      </section>
+
+      <!-- ЭКРАН 3. ПОДКЛЮЧЕНИЕ -->
+      <section class="screen screen--narrow" id="screen-join" data-screen="join" aria-labelledby="join-title" hidden>
+        <div class="screen-head">
+          <button class="back-btn" type="button" data-go="lobby" aria-label="Назад в лобби">
+            <svg class="icon"><use href="#i-arrow-left"/></svg>
+          </button>
+          <div><p class="eyebrow">Присоединиться</p><h1 id="join-title" tabindex="-1">Подключение</h1></div>
+        </div>
+
+        <div class="panel">
+          <div class="state-icon state-icon--link">
+            <svg class="icon"><use href="#i-link"/></svg>
+          </div>
+          <h2>Введите ID комнаты</h2>
+          <p>Вставьте ID, который прислал друг, или полную ссылку на игру.</p>
+
+          <form id="join-form" novalidate>
+            <label class="field-label" for="join-input">ID комнаты или ссылка</label>
+            <div class="input-with-action">
+              <input class="text-input" id="join-input" name="room" type="text" placeholder="bsb-c-a1b2c3d4" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="join-error join-hint">
+              <button class="icon-btn icon-btn--box" id="btn-paste" type="button" aria-label="Вставить из буфера">
+                <svg class="icon"><use href="#i-paste"/></svg>
+              </button>
+            </div>
+            <p class="field-hint" id="join-hint">ID содержит латинские буквы и цифры, например <code>bsb-c-a1b2c3d4</code>.</p>
+            <button class="btn btn--primary btn--block" id="btn-connect" type="submit">
+              <svg class="icon"><use href="#i-wifi"/></svg>
+              <span>Подключиться</span>
+            </button>
+          </form>
+
+          <div class="inline-error" id="join-error" role="alert" hidden></div>
+
+          <div class="connecting-loader" id="join-loader" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <div><strong>Устанавливаем соединение</strong><span id="join-loader-text">Ищем комнату в сети…</span></div>
+          </div>
+
+          <div class="info-strip">
+            <svg class="icon"><use href="#i-shield"/></svg>
+            <p>ID нужен только для рукопожатия. Выстрелы передаются напрямую между браузерами.</p>
+          </div>
+        </div>
+
+        <div class="invite-note" id="invite-note" hidden>
+          <svg class="icon"><use href="#i-share"/></svg>
+          <p>Вас пригласили в комнату <code id="invite-room-id"></code>. Нажмите «Подключиться».</p>
+        </div>
+      </section>
+
+      <!-- ЭКРАН 4. РАССТАНОВКА -->
+      <section class="screen screen--game screen--placement" id="screen-placement" data-screen="placement" aria-labelledby="placement-title" hidden>
+        <div class="screen-head screen-head--placement">
+          <div>
+            <p class="eyebrow">Подготовка к бою</p>
+            <h1 id="placement-title" tabindex="-1">Расставьте флот</h1>
+          </div>
+          <div class="opponent-chip" id="placement-opponent" data-state="waiting">
+            <span class="opponent-chip__dot"></span>
+            <span id="placement-opponent-text">Соперник готовится</span>
+          </div>
+        </div>
+
+        <div class="placement-layout">
+          <div class="placement-board-col">
+            <div class="board-panel board-panel--placement">
+              <div class="board-panel__head">
+                <div><span class="board-kicker">Ваше поле</span><h2>10 × 10</h2></div>
+                <span class="counter-pill" id="placement-counter">0 / 10</span>
+              </div>
+              <div class="board" id="placement-board" role="grid" aria-label="Ваше поле для расстановки кораблей"></div>
+              <p class="board-hint" id="placement-hint">Выберите корабль и коснитесь клетки. Корабли не могут касаться друг друга.</p>
+            </div>
+          </div>
+
+          <aside class="placement-controls" aria-label="Управление расстановкой">
+            <div class="fleet-panel">
+              <div class="fleet-panel__head"><h3>Ваш флот</h3><span id="fleet-progress">0 / 10</span></div>
+              <div class="fleet-list" id="fleet-list"></div>
+            </div>
+
+            <div class="placement-tools">
+              <button class="tool-btn" id="btn-rotate" type="button" title="Повернуть корабль (R)">
+                <svg class="icon"><use href="#i-rotate"/></svg>
+                <span id="rotate-label">Горизонтально</span>
+              </button>
+              <button class="tool-btn" id="btn-random" type="button" title="Случайная расстановка">
+                <svg class="icon"><use href="#i-shuffle"/></svg>
+                <span>Случайно</span>
+              </button>
+              <button class="tool-btn" id="btn-undo" type="button" title="Убрать последний корабль">
+                <svg class="icon"><use href="#i-undo"/></svg>
+                <span>Отменить</span>
+              </button>
+              <button class="tool-btn tool-btn--danger" id="btn-clear" type="button" title="Очистить поле">
+                <svg class="icon"><use href="#i-trash"/></svg>
+                <span>Очистить</span>
+              </button>
+            </div>
+
+            <button class="btn btn--primary btn--block btn--ready" id="btn-ready" type="button" disabled>
+              <svg class="icon"><use href="#i-check"/></svg>
+              <span>Флот готов — в бой</span>
+            </button>
+
+            <div class="ready-wait" id="ready-state" hidden>
+              <span class="spinner spinner--sm" aria-hidden="true"></span>
+              <div><strong>Флот отправлен</strong><span id="ready-wait-text">Ждём готовности соперника…</span></div>
+            </div>
+
+            <p class="placement-tip">
+              <svg class="icon"><use href="#i-bolt"/></svg>
+              Совет: нажмите <kbd>R</kbd>, чтобы повернуть корабль. Удобнее всего начать с линкора.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ЭКРАН 5. ИГРА -->
+      <section class="screen screen--game" id="screen-game" data-screen="game" aria-labelledby="game-title" hidden>
+        <div class="screen-head screen-head--game">
+          <div>
+            <p class="eyebrow">Идёт бой</p>
+            <h1 id="game-title" tabindex="-1">Морской бой</h1>
+          </div>
+          <button class="icon-btn icon-btn--box" id="btn-leave-game" type="button" aria-label="Покинуть игру" title="Покинуть игру">
+            <svg class="icon"><use href="#i-door"/></svg>
+          </button>
+        </div>
+
+        <div class="turn-banner" id="turn-banner" data-turn="you" role="status" aria-live="polite">
+          <span class="turn-banner__indicator" aria-hidden="true"><span></span></span>
+          <div class="turn-banner__copy">
+            <strong id="turn-title">Ваш ход</strong>
+            <span id="turn-subtitle">Коснитесь клетки на нижнем поле</span>
+          </div>
+          <svg class="turn-banner__icon" aria-hidden="true"><use href="#i-crosshair"/></svg>
+        </div>
+
+        <div class="game-boards">
+          <section class="board-panel board-panel--own" aria-labelledby="own-board-title">
+            <div class="board-panel__head">
+              <div><span class="board-kicker">Не подставляйте борта</span><h2 id="own-board-title">Ваше поле</h2></div>
+              <span class="fleet-badge" id="own-fleet-badge">10 / 10</span>
+            </div>
+            <div class="board board--own" id="own-board" role="grid" aria-label="Ваше поле. Здесь видны выстрелы соперника"></div>
+            <div class="board-legend">
+              <span><i class="legend-mark legend-mark--miss"></i> промах</span>
+              <span><i class="legend-mark legend-mark--hit"></i> попадание</span>
+              <span><i class="legend-mark legend-mark--sunk"></i> потоплен</span>
+            </div>
+          </section>
+
+          <section class="board-panel board-panel--enemy" id="enemy-panel" aria-labelledby="enemy-board-title">
+            <div class="board-panel__head">
+              <div><span class="board-kicker" id="enemy-kicker">Целься точно</span><h2 id="enemy-board-title">Поле соперника</h2></div>
+              <span class="fleet-badge fleet-badge--enemy" id="enemy-fleet-badge">0 / 10</span>
+            </div>
+            <div class="board board--enemy is-active" id="enemy-board" role="grid" aria-label="Поле соперника. Коснитесь клетки, чтобы выстрелить"></div>
+            <p class="enemy-hint" id="enemy-hint">Ваш ход: выберите клетку для выстрела.</p>
+          </section>
+        </div>
+
+        <div class="game-footer">
+          <div class="log-panel">
+            <div class="log-panel__head"><h3>Боевой журнал</h3><span id="log-turn">Ход 1</span></div>
+            <div class="game-log" id="game-log" aria-live="polite">
+              <p class="game-log__empty">Сделайте первый выстрел.</p>
+            </div>
+          </div>
+          <button class="text-btn text-btn--danger" id="btn-resign" type="button">Сдаться</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__backdrop"></div>
+    <div class="modal__card" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-text">
+      <span class="modal__icon" id="modal-icon" aria-hidden="true">
+        <svg class="icon"><use href="#i-trophy"/></svg>
+      </span>
+      <p class="eyebrow" id="modal-eyebrow">Игра завершена</p>
+      <h2 id="modal-title">Победа!</h2>
+      <p id="modal-text">Весь флот соперника отправлен на дно.</p>
+      <div class="modal__actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+  <div class="sr-only" id="sr-announcer" role="status" aria-live="assertive"></div>
+
+  <noscript>
+    <div class="noscript">Для игры нужен JavaScript. Включите его в настройках браузера.</div>
+  </noscript>
+</body>
+</html>
