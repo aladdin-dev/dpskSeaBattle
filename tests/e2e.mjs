@@ -184,12 +184,14 @@ const wakeLock = await pageA.evaluate(() => ({
   state: document.getElementById('wake-note').dataset.state,
   text: document.getElementById('wake-note-text').textContent
 }));
-console.log('   Screen Wake Lock:', wakeLock);
-assert.equal(wakeLock.hidden, false, 'подсказка про Wake Lock должна быть видна в бою');
+console.log('   Screen Wake Lock (десктоп):', wakeLock);
 assert.ok(
-  wakeLock.supported ? ['active', 'error'].includes(wakeLock.state) : wakeLock.state === 'error',
+  ['idle', 'active', 'error'].includes(wakeLock.state),
   `неожиданное состояние Wake Lock: ${wakeLock.state}`
 );
+if (wakeLock.state === 'error') {
+  assert.equal(wakeLock.hidden, false, 'ошибка Wake Lock должна быть видна пользователю');
+}
 
 const bShips = await shipCells(pageB);
 const aShips = await shipCells(pageA);
@@ -214,6 +216,14 @@ await waitCellState(pageA, '#own-board', aWater[0], aWater[1], ['cell--miss']);
 await waitForTurn(pageA, 'you');
 await waitForTurn(pageB, 'opponent');
 console.log('   Ход корректно перешёл к сопернику и обратно');
+
+console.log('4a. Проверяем, что после касания Screen Wake Lock активен на телефоне…');
+const wakeAfterTap = await pageB.evaluate(() => ({
+  state: document.getElementById('wake-note').dataset.state,
+  text: document.getElementById('wake-note-text').textContent
+}));
+console.log('   ', wakeAfterTap);
+assert.equal(wakeAfterTap.state, 'active', 'на телефоне Wake Lock должен удерживать экран');
 
 console.log('5. Топим весь флот соперника (20 попаданий)…');
 let checkedSunkStyle = false;

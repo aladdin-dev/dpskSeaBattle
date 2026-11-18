@@ -195,6 +195,11 @@ document.addEventListener('visibilitychange', () => {
 
 - Call it on entering the active screen and again inside a tap handler (user
   gesture), because some browsers reject requests without activation.
+- Retry periodically (every ~20 s while the session is active); a first request
+  can be refused during page load and succeed later.
+- Show the "screen stays on" note on phones/tablets (`maxTouchPoints > 0` or a
+  narrow viewport); do not clutter the desktop UI where the screen is rarely
+  locked by an idle timer.
 - Release it when the session ends; keep the UI honest when it is unavailable
   (older Safari, in-app browsers, low-power mode).
 - Never rely on it as the only protection: also make a lost connection

@@ -164,6 +164,7 @@
     createOpenTimer: null,
     watchdogTimer: null,
     pcDisconnectedSince: 0,
+    wakeAttempts: 0,
     remoteHello: false,
     ownBoard: null,
     enemyBoard: null,
@@ -272,6 +273,12 @@
     ui.wakeNote.dataset.state = 'idle';
   }
 
+  // Подсказка про Wake Lock нужна только там, где экран реально гасят —
+  // на телефоне и планшете. На десктопе молчим, чтобы не пугать зря.
+  function needsWakeGuidance() {
+    return navigator.maxTouchPoints > 0 || window.matchMedia('(max-width: 820px)').matches;
+  }
+
   /*
    * Screen Wake Lock держит экран телефона включённым, пока идёт бой.
    * Браузер автоматически снимает блокировку при скрытии вкладки; тогда мы
@@ -279,7 +286,7 @@
    */
   async function requestWakeLock() {
     if (!wakeState.supported) {
-      if (state.screen === 'game') {
+      if (state.screen === 'game' && needsWakeGuidance()) {
         showWakeNote('error', 'Браузер не поддерживает блокировку сна. Отключите автоблокировку экрана в настройках.');
       }
       return false;
@@ -287,7 +294,7 @@
     if (document.visibilityState !== 'visible') return false;
     if (state.phase !== 'placement' && state.phase !== 'playing' && state.phase !== 'over') return false;
     if (wakeState.sentinel && !wakeState.sentinel.released) {
-      if (state.screen === 'game' && state.connected) {
+      if (state.screen === 'game' && state.connected && needsWakeGuidance()) {
         showWakeNote('active', 'Экран не погаснет, пока идёт бой');
       }
       return true;
@@ -300,7 +307,7 @@
       wakeState.sentinel = sentinel;
       sentinel.addEventListener('release', function () {
         wakeState.sentinel = null;
-        if (state.screen !== 'game' || !state.connected) {
+        if (state.screen !== 'game' || !state.connected || !needsWakeGuidance()) {
           hideWakeNote();
           return;
         }
@@ -310,13 +317,16 @@
           showWakeNote('error', 'Блокировка сна снята. Коснитесь поля, чтобы включить её снова.');
         }
       });
-      if (state.screen === 'game' && state.connected) {
+      if (state.screen === 'game' && state.connected && needsWakeGuidance()) {
         showWakeNote('active', 'Экран не погаснет, пока идёт бой');
       }
       return true;
     } catch (error) {
-      if (state.screen === 'game' && state.connected) {
+      console.warn('[battleship] wake lock rejected', error && error.name, error && error.message);
+      if (state.screen === 'game' && state.connected && needsWakeGuidance()) {
         showWakeNote('error', 'Не удалось удержать экран включённым. Отключите автоблокировку вручную.');
+      } else {
+        hideWakeNote();
       }
       return false;
     } finally {
@@ -577,6 +587,7 @@
   function startConnectionWatchdog() {
     if (state.watchdogTimer) window.clearInterval(state.watchdogTimer);
     state.pcDisconnectedSince = 0;
+    state.wakeAttempts = 0;
     state.watchdogTimer = window.setInterval(function () {
       if (!state.connected || !state.conn) return;
       // Пока вкладка скрыта (погас экран, свёрнуто приложение), таймеры
@@ -584,6 +595,13 @@
       if (document.visibilityState !== 'visible') {
         state.pcDisconnectedSince = 0;
         return;
+      }
+      // Периодически повторяем запрос Wake Lock: браузер мог отклонить первый
+      // запрос, а после жеста или смены условий его уже можно получить.
+      state.wakeAttempts += 1;
+      if (state.wakeAttempts >= 5) {
+        state.wakeAttempts = 0;
+        if (!wakeState.sentinel) requestWakeLock();
       }
       const pc = state.conn.peerConnection;
       if (!pc) return;
@@ -1353,6 +1371,7 @@
     updatePlacementOpponent();
     updateRotateLabel();
     showScreen('placement');
+    requestWakeLock();
     setStatus('online', 'Соперник на связи');
     announce('Расставьте флот. Выберите корабль и коснитесь клетки.');
   }
@@ -2407,6 +2426,12 @@
         releaseWakeLock();
       }
     });
+
+    // Любое касание — тоже попытка удержать экран: часть браузеров принимает
+    // запрос Wake Lock только внутри пользовательского жеста.
+    document.addEventListener('pointerdown', function () {
+      if (state.connected && (state.screen === 'game' || state.screen === 'placement')) requestWakeLock();
+    }, { passive: true });
 
     window.addEventListener('beforeunload', function () {
       if (state.connected) sendMessage({ type: 'leave' });
