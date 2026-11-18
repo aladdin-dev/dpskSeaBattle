@@ -76,6 +76,14 @@ async function shoot(page, x, y) {
   await page.locator(`#enemy-board .cell[data-x="${x}"][data-y="${y}"]`).click();
 }
 
+function averageBrightness(cssBackground) {
+  const numbers = [...String(cssBackground).matchAll(/rgba?\(([^)]+)\)/g)]
+    .map((match) => match[1].split(',').slice(0, 3).map((part) => Number.parseFloat(part)));
+  if (!numbers.length) return null;
+  const total = numbers.reduce((sum, [r, g, b]) => sum + (r * 0.299 + g * 0.587 + b * 0.114), 0);
+  return total / numbers.length;
+}
+
 async function waitForTurn(page, turn, timeout = 10000) {
   try {
     await page.waitForFunction(
@@ -135,6 +143,54 @@ await pageA.waitForTimeout(600);
 await pageA.screenshot({ path: `${SHOTS}/06-game-desktop.png`, fullPage: true });
 await pageB.screenshot({ path: `${SHOTS}/07-game-mobile.png`, fullPage: true });
 
+console.log('3a. Проверяем раскладку полей…');
+const desktopBoards = await pageA.evaluate(() => {
+  const own = document.getElementById('own-board').getBoundingClientRect();
+  const enemy = document.getElementById('enemy-board').getBoundingClientRect();
+  return {
+    own: { top: Math.round(own.top), left: Math.round(own.left), bottom: Math.round(own.bottom), right: Math.round(own.right) },
+    enemy: { top: Math.round(enemy.top), left: Math.round(enemy.left), bottom: Math.round(enemy.bottom), right: Math.round(enemy.right) }
+  };
+});
+assert.ok(
+  desktopBoards.enemy.left > desktopBoards.own.right,
+  `на десктопе поля должны стоять рядом: ${JSON.stringify(desktopBoards)}`
+);
+assert.ok(
+  Math.abs(desktopBoards.enemy.top - desktopBoards.own.top) < 40,
+  'на десктопе поля должны начинаться на одной высоте'
+);
+const mobileBoards = await pageB.evaluate(() => {
+  const own = document.getElementById('own-board').getBoundingClientRect();
+  const enemy = document.getElementById('enemy-board').getBoundingClientRect();
+  return {
+    own: { top: Math.round(own.top), bottom: Math.round(own.bottom), right: Math.round(own.right) },
+    enemy: { top: Math.round(enemy.top), left: Math.round(enemy.left) }
+  };
+});
+assert.ok(
+  mobileBoards.enemy.top > mobileBoards.own.bottom,
+  `на телефоне поля должны идти колонкой: ${JSON.stringify(mobileBoards)}`
+);
+assert.equal(
+  (await pageA.locator('.board-legend').innerText()).includes('ранен'),
+  true,
+  'в легенде должно быть разделение «ранен» и «потоплен»'
+);
+
+const wakeLock = await pageA.evaluate(() => ({
+  supported: Boolean(navigator.wakeLock && navigator.wakeLock.request),
+  hidden: document.getElementById('wake-note').hidden,
+  state: document.getElementById('wake-note').dataset.state,
+  text: document.getElementById('wake-note-text').textContent
+}));
+console.log('   Screen Wake Lock:', wakeLock);
+assert.equal(wakeLock.hidden, false, 'подсказка про Wake Lock должна быть видна в бою');
+assert.ok(
+  wakeLock.supported ? ['active', 'error'].includes(wakeLock.state) : wakeLock.state === 'error',
+  `неожиданное состояние Wake Lock: ${wakeLock.state}`
+);
+
 const bShips = await shipCells(pageB);
 const aShips = await shipCells(pageA);
 assert.equal(bShips.length, 20);
@@ -160,10 +216,42 @@ await waitForTurn(pageB, 'opponent');
 console.log('   Ход корректно перешёл к сопернику и обратно');
 
 console.log('5. Топим весь флот соперника (20 попаданий)…');
+let checkedSunkStyle = false;
 for (let index = 0; index < bShips.length; index += 1) {
   const [x, y] = bShips[index];
   await shoot(pageA, x, y);
   await waitCellState(pageA, '#enemy-board', x, y, ['cell--hit', 'cell--sunk']);
+
+  if (!checkedSunkStyle) {
+    const styles = await pageA.evaluate(() => {
+      const hit = document.querySelector('#enemy-board .cell--hit');
+      const sunk = document.querySelector('#enemy-board .cell--sunk');
+      if (!hit || !sunk) return null;
+      return {
+        hitBackground: getComputedStyle(hit).backgroundImage,
+        sunkBackground: getComputedStyle(sunk).backgroundImage,
+        hitCross: getComputedStyle(hit, '::before').backgroundColor,
+        sunkCross: getComputedStyle(sunk, '::before').backgroundColor
+      };
+    });
+    if (styles) {
+      checkedSunkStyle = true;
+      await pageA.screenshot({ path: `${SHOTS}/06b-sunk-vs-hit-desktop.png`, fullPage: true });
+      await pageB.screenshot({ path: `${SHOTS}/06c-sunk-vs-hit-mobile.png`, fullPage: true });
+      const hitBrightness = averageBrightness(styles.hitBackground);
+      const sunkBackgroundBrightness = averageBrightness(styles.sunkBackground);
+      console.log(
+        `   раненый фон ярче потопленного: ${hitBrightness} против ${sunkBackgroundBrightness}`
+      );
+      assert.notEqual(styles.hitBackground, styles.sunkBackground, 'раненые и потопленные клетки должны отличаться');
+      assert.notEqual(styles.hitCross, styles.sunkCross, 'крест раненой и потопленной клетки должен отличаться');
+      assert.ok(
+        hitBrightness !== null && sunkBackgroundBrightness !== null && hitBrightness > sunkBackgroundBrightness,
+        'потопленная клетка должна быть темнее раненой'
+      );
+    }
+  }
+
   await pageA.waitForFunction(
     () => document.getElementById('turn-banner')?.dataset.turn === 'you' || !document.getElementById('modal')?.hidden,
     null,

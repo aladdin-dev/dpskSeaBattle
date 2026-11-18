@@ -138,7 +138,7 @@
           </article>
           <article class="feature-card">
             <span class="feature-card__icon"><svg class="icon"><use href="#i-phone"/></svg></span>
-            <div><h2>Удобно на телефоне</h2><p>Крупные клетки, расстановка в одно касание и два поля друг под другом.</p></div>
+            <div><h2>Удобно на телефоне</h2><p>Крупные клетки и расстановка в одно касание. На широком экране поля стоят рядом, на телефоне — друг под другом.</p></div>
           </article>
         </div>
 
@@ -150,7 +150,7 @@
           <div class="rules-card__body">
             <ol>
               <li><strong>Создайте комнату</strong> или присоединитесь по ID друга.</li>
-              <li><strong>Расставьте флот</strong> на верхнем поле: выбирайте корабль и касайтесь клетки. Поворот — кнопкой смены ориентации.</li>
+              <li><strong>Расставьте флот</strong> на своём поле: выбирайте корабль и касайтесь клетки. Поворот — кнопкой смены ориентации.</li>
               <li><strong>Стреляйте</strong> по нижнему полю. Попали — стреляете снова, промахнулись — ход переходит сопернику.</li>
               <li><strong>Побеждает</strong> тот, кто первым потопит все 10 кораблей противника.</li>
             </ol>
@@ -355,7 +355,7 @@
           <span class="turn-banner__indicator" aria-hidden="true"><span></span></span>
           <div class="turn-banner__copy">
             <strong id="turn-title">Ваш ход</strong>
-            <span id="turn-subtitle">Коснитесь клетки на нижнем поле</span>
+            <span id="turn-subtitle">Коснитесь клетки на поле соперника</span>
           </div>
           <svg class="turn-banner__icon" aria-hidden="true"><use href="#i-crosshair"/></svg>
         </div>
@@ -369,7 +369,7 @@
             <div class="board board--own" id="own-board" role="grid" aria-label="Ваше поле. Здесь видны выстрелы соперника"></div>
             <div class="board-legend">
               <span><i class="legend-mark legend-mark--miss"></i> промах</span>
-              <span><i class="legend-mark legend-mark--hit"></i> попадание</span>
+              <span><i class="legend-mark legend-mark--hit"></i> ранен</span>
               <span><i class="legend-mark legend-mark--sunk"></i> потоплен</span>
             </div>
           </section>
@@ -391,7 +391,13 @@
               <p class="game-log__empty">Сделайте первый выстрел.</p>
             </div>
           </div>
-          <button class="text-btn text-btn--danger" id="btn-resign" type="button">Сдаться</button>
+          <div class="game-footer__aside">
+            <p class="wake-note" id="wake-note" data-state="idle" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+              <span id="wake-note-text">Экран не погаснет во время боя</span>
+            </p>
+            <button class="text-btn text-btn--danger" id="btn-resign" type="button">Сдаться</button>
+          </div>
         </div>
       </section>
     </main>

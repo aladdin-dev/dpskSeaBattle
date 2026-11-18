@@ -129,6 +129,8 @@
     enemyHint: $('enemy-hint'),
     gameLog: $('game-log'),
     logTurn: $('log-turn'),
+    wakeNote: $('wake-note'),
+    wakeNoteText: $('wake-note-text'),
     resign: $('btn-resign'),
     leaveGame: $('btn-leave-game'),
     modal: $('modal'),
@@ -186,6 +188,12 @@
     previewKey: '',
     modalDismissible: false,
     lastFocused: null
+  };
+
+  const wakeState = {
+    supported: Boolean(navigator.wakeLock && typeof navigator.wakeLock.request === 'function'),
+    sentinel: null,
+    requesting: false
   };
 
   /* ========================================================================
@@ -249,6 +257,85 @@
 
   function clearToasts() {
     ui.toastRegion.replaceChildren();
+  }
+
+  function showWakeNote(status, text) {
+    if (!ui.wakeNote) return;
+    ui.wakeNote.dataset.state = status;
+    ui.wakeNoteText.textContent = text;
+    if (state.screen === 'game') ui.wakeNote.hidden = false;
+  }
+
+  function hideWakeNote() {
+    if (!ui.wakeNote) return;
+    ui.wakeNote.hidden = true;
+    ui.wakeNote.dataset.state = 'idle';
+  }
+
+  /*
+   * Screen Wake Lock держит экран телефона включённым, пока идёт бой.
+   * Браузер автоматически снимает блокировку при скрытии вкладки; тогда мы
+   * запрашиваем её снова, как только игрок возвращается.
+   */
+  async function requestWakeLock() {
+    if (!wakeState.supported) {
+      if (state.screen === 'game') {
+        showWakeNote('error', 'Браузер не поддерживает блокировку сна. Отключите автоблокировку экрана в настройках.');
+      }
+      return false;
+    }
+    if (document.visibilityState !== 'visible') return false;
+    if (state.phase !== 'placement' && state.phase !== 'playing' && state.phase !== 'over') return false;
+    if (wakeState.sentinel && !wakeState.sentinel.released) {
+      if (state.screen === 'game' && state.connected) {
+        showWakeNote('active', 'Экран не погаснет, пока идёт бой');
+      }
+      return true;
+    }
+    if (wakeState.requesting) return false;
+
+    wakeState.requesting = true;
+    try {
+      const sentinel = await navigator.wakeLock.request('screen');
+      wakeState.sentinel = sentinel;
+      sentinel.addEventListener('release', function () {
+        wakeState.sentinel = null;
+        if (state.screen !== 'game' || !state.connected) {
+          hideWakeNote();
+          return;
+        }
+        if (document.visibilityState === 'hidden') {
+          hideWakeNote();
+        } else {
+          showWakeNote('error', 'Блокировка сна снята. Коснитесь поля, чтобы включить её снова.');
+        }
+      });
+      if (state.screen === 'game' && state.connected) {
+        showWakeNote('active', 'Экран не погаснет, пока идёт бой');
+      }
+      return true;
+    } catch (error) {
+      if (state.screen === 'game' && state.connected) {
+        showWakeNote('error', 'Не удалось удержать экран включённым. Отключите автоблокировку вручную.');
+      }
+      return false;
+    } finally {
+      wakeState.requesting = false;
+    }
+  }
+
+  function releaseWakeLock() {
+    const sentinel = wakeState.sentinel;
+    wakeState.sentinel = null;
+    if (sentinel) {
+      try {
+        const released = sentinel.release();
+        if (released && typeof released.catch === 'function') released.catch(function () {});
+      } catch (error) {
+        // Сентинел уже мог быть освобождён браузером.
+      }
+    }
+    hideWakeNote();
   }
 
   function openModal(config) {
@@ -465,6 +552,7 @@
 
   function destroyNetwork() {
     clearNetTimeouts();
+    releaseWakeLock();
     const conn = state.conn;
     const peer = state.peer;
     state.conn = null;
@@ -491,6 +579,12 @@
     state.pcDisconnectedSince = 0;
     state.watchdogTimer = window.setInterval(function () {
       if (!state.connected || !state.conn) return;
+      // Пока вкладка скрыта (погас экран, свёрнуто приложение), таймеры
+      // браузера замирают и ICE может восстанавливаться сам — не обрываем бой.
+      if (document.visibilityState !== 'visible') {
+        state.pcDisconnectedSince = 0;
+        return;
+      }
       const pc = state.conn.peerConnection;
       if (!pc) return;
       const connectionState = pc.connectionState;
@@ -1610,6 +1704,7 @@
     updatePlacementOpponent();
     ui.placementHint.textContent = 'Флот зафиксирован. Ждём, пока соперник закончит расстановку.';
     announce('Флот отправлен. Ждём соперника.');
+    requestWakeLock();
     maybeStartGame();
   }
 
@@ -1658,6 +1753,7 @@
     closeModal();
     renderGame();
     showScreen('game');
+    requestWakeLock();
     addLog('Бой начался. ' + (state.myTurn ? 'Ваш ход.' : 'Ход соперника.'), 'info');
     setStatus('online', state.myTurn ? 'Ваш ход' : 'Ход соперника');
     announce(state.myTurn ? 'Бой начался. Ваш ход.' : 'Бой начался. Первым ходит соперник.');
@@ -1796,7 +1892,7 @@
       } else if (state.myTurn) {
         mode = 'you';
         title = 'Ваш ход';
-        subtitle = 'Коснитесь клетки на нижнем поле';
+        subtitle = 'Коснитесь клетки на поле соперника';
         hint = 'Ваш ход: выберите клетку для выстрела.';
       } else {
         mode = 'opponent';
@@ -1863,6 +1959,10 @@
       toast('Здесь уже стреляли. Выберите другую клетку.', 'info');
       return;
     }
+
+    // Повторный запрос внутри жеста пользователя помогает браузерам,
+    // которым нужен user activation для Screen Wake Lock.
+    requestWakeLock();
 
     const shotId = String(Date.now()) + '-' + String(Math.floor(Math.random() * 100000));
     state.awaitingShot = true;
@@ -2295,6 +2395,16 @@
       if (!ui.modal.hidden) return;
       if ((event.key === 'r' || event.key === 'R' || event.code === 'KeyR') && state.screen === 'placement') {
         rotateShip();
+      }
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        // После возврата даём ICE новый шанс восстановиться.
+        state.pcDisconnectedSince = 0;
+        if (state.screen === 'game' && state.connected) requestWakeLock();
+      } else {
+        releaseWakeLock();
       }
     });
 
